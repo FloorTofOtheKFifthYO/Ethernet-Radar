@@ -15,9 +15,6 @@
 #include "lwip_comm.h"
 #include "lwipopts.h"
 #include "tcp_client_demo.h"
-#include "tcp_client_demo.h"
-#include "tcp_server_demo.h"
-#include "udp_demo.h"
 
 //ALIENTEK 探索者STM32F407开发板 实验55
 //LWIP网络通信综合实验-库函数版本
@@ -28,7 +25,6 @@
 
 /*ALIENTEK为LWIP学习专门编写手册《ALIENTEK STM32F4 LWIP使用教程.pdf》，详细说明请参考手册。*/
 
-extern void Adc_Temperate_Init(void);	//声明内部温度传感器初始化函数
 //加载UI
 //mode:
 //bit0:0,不加载;1,加载前半部分UI

@@ -26,19 +26,51 @@
 //TCP Client接收数据缓冲区
 u8 tcp_client_recvbuf[TCP_CLIENT_RX_BUFSIZE];	
 //TCP服务器发送数据内容
-const u8 *tcp_client_sendbuf="Explorer STM32F407 TCP Client send data\r\n";
 //const u8 *tcp_client_sendbuf="GD0530055001\r";
 const u8 cmd[5][14]={"%ST\r","BM\r","QT\r","RS\r",
 	"GD0530055000\r"};
-int tmp,cp,len;
-char* text;
+int recv_len,cp,data_len=550-530;
+u32 data[3000];
 //TCP Client 测试全局状态标记变量
 //bit7:0,没有数据要发送;1,有数据要发送
 //bit6:0,没有收到数据;1,收到数据了.
 //bit5:0,没有连接上服务器;1,连接上服务器了.
 //bit4~0:保留
-u8 tcp_client_flag;	 
 
+u8 tcp_client_flag;	 
+u32 convert(u8* data,int len){
+	u32 ans=0,i=0;
+	while (i<len){
+		ans<<=6;
+		ans+=data[i]-48;
+		i++;
+	}
+	return ans;
+}
+void decode(u8 *databuf,int len){
+	int i=0,p=0;
+	u8 ptr=0;
+	u8* tmp;
+	tmp=mymalloc(SRAMIN,3);
+	while (databuf[i]!=0x0a) i++;
+	i+=1;
+	while (databuf[i]!=0x0a) i++;
+	i+=1;
+	data[p++]=convert(databuf+i,4);
+	i+=6;
+	while (i<len){
+		if (databuf[i+1]==0x0a)
+			i+=2;
+		memcpy((u8*)tmp+ptr,(u8*)&databuf[i],1);
+		ptr++;i++;
+		if (ptr==3) {
+			data[p++]=convert(tmp,3);
+			memset(tmp,0,3);
+			ptr=0;
+		}
+	}
+	myfree(SRAMIN,tmp);
+}
 //设置远端IP地址
 void tcp_client_set_remoteip(void)
 {
@@ -88,9 +120,7 @@ void tcp_client_test(void)
 	u8 res=0;		
 	u8 t=0; 
 	u8 connflag=0;		//连接标记
-	tmp = 0;cp=0;len=0;
-	text=mymalloc(SRAMIN,20);
-	
+	recv_len = 0;cp=0;
 	
 	tcp_client_set_remoteip();//先选择IP
 	LCD_Clear(WHITE);	//清屏
@@ -129,11 +159,17 @@ void tcp_client_test(void)
 		if(tcp_client_flag&1<<6)//是否收到数据?
 		{
 			LCD_Fill(30,190,lcddev.width-1,lcddev.height-1,WHITE);//清上一次数据
-			LCD_ShowString_length(30,190,lcddev.width-35,lcddev.height-230,16,tcp_client_recvbuf,tmp);//显示接收到的数据	
-			printf("%d\n",len);
-			len=0;
-			memset(text,0,20);
-			tmp=0;
+			LCD_ShowString_length(30,190,lcddev.width-35,lcddev.height-230,16,tcp_client_recvbuf,recv_len);//显示接收到的数据
+
+			if (memcmp(tcp_client_recvbuf,cmd[4],12)==0){
+				decode(tcp_client_recvbuf,recv_len);
+				printf("\r\nTimeStamp:%d\r\n",data[0]);
+				for (recv_len=1;recv_len<data_len+1;recv_len++){
+					printf("%d ",data[recv_len]);
+					if (recv_len%5==0) printf("\r\n");
+				}
+			}
+			recv_len=0;
 			tcp_client_flag&=~(1<<6);//标记数据已经被处理了.
 		}
 		if(tcp_client_flag&1<<5)//是否连接上?
@@ -172,7 +208,6 @@ void tcp_client_test(void)
 	}
 	tcp_client_connection_close(tcppcb,0);//关闭TCP Client连接
 	myfree(SRAMIN,tbuf);
-	myfree(SRAMIN,text);
 } 
 //lwIP TCP连接建立后调用回调函数
 err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
@@ -240,7 +275,7 @@ err_t tcp_client_recv(void *arg,struct tcp_pcb *tpcb,struct pbuf *p,err_t err)
  			tcp_recved(tpcb,p->tot_len);//用于获取接收数据,通知LWIP可以获取更多数据
 			pbuf_free(p);  	//释放内存
 			ret_err=ERR_OK;
-			tmp+=p->tot_len;
+			recv_len+=p->tot_len;
 		}
 	}else  //接收到数据但是连接已经关闭,
 	{ 
@@ -268,7 +303,6 @@ err_t tcp_client_poll(void *arg, struct tcp_pcb *tpcb)
 		{
 //			es->p=pbuf_alloc(PBUF_TRANSPORT, strlen((char*)tcp_client_sendbuf),PBUF_POOL);	//申请内存 
 //			pbuf_take(es->p,(char*)tcp_client_sendbuf,strlen((char*)tcp_client_sendbuf));	//将tcp_client_sentbuf[]中的数据拷贝到es->p_tx中
-			len=strlen((char*)cmd[cp]);
 			es->p=pbuf_alloc(PBUF_TRANSPORT, strlen((char*)cmd[cp]),PBUF_POOL);	//申请内存 
 			pbuf_take(es->p,(char*)cmd[cp],strlen((char*)cmd[cp]));	//将tcp_client_sentbuf[]中的数据拷贝到es->p_tx中
 			tcp_client_senddata(tpcb,es);//将tcp_client_sentbuf[]里面复制给pbuf的数据发送出去
@@ -303,7 +337,6 @@ void tcp_client_senddata(struct tcp_pcb *tpcb, struct tcp_client_struct * es)
 	while((wr_err==ERR_OK)&&es->p&&(es->p->len<=tcp_sndbuf(tpcb))) //将要发送的数据加入到发送缓冲队列中
 	{
 		ptr=es->p;
-		if(ptr->len>0)memcpy(text,(char*)(ptr->payload),ptr->len);
 		wr_err=tcp_write(tpcb,ptr->payload,ptr->len,1);
 		if(wr_err==ERR_OK)
 		{  
