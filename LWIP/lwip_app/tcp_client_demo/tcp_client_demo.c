@@ -7,6 +7,7 @@
 #include "malloc.h"
 #include "stdio.h"
 #include "string.h" 
+#include "math.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序只供学习使用，未经作者许可，不得用于其它任何用途
 //ALIENTEK STM32F407开发板
@@ -22,14 +23,14 @@
 //修改信息
 //无
 ////////////////////////////////////////////////////////////////////////////////// 	   
- 
+ #define pi 3.1415
 //TCP Client接收数据缓冲区
 u8 tcp_client_recvbuf[TCP_CLIENT_RX_BUFSIZE];	
 //TCP服务器发送数据内容
 //const u8 *tcp_client_sendbuf="GD0530055001\r";
 const u8 cmd[5][14]={"%ST\r","BM\r","QT\r","RS\r",
-	"GD0530055000\r"};
-int recv_len,cp,data_len=550-530;
+	"GD0480060000\r"};
+int recv_len,cp,data_len=600-480;
 u32 data[3000];
 //TCP Client 测试全局状态标记变量
 //bit7:0,没有数据要发送;1,有数据要发送
@@ -70,6 +71,46 @@ void decode(u8 *databuf,int len){
 		}
 	}
 	myfree(SRAMIN,tmp);
+}
+
+float ToAngle(int l,int r,float alfa){
+	float len,ans;
+	len = l*l+r*r-2*l*r*cos(alfa);
+	ans = l*l/len*powf(sin(alfa),2);
+	ans = sqrtf(ans);
+	return asin(ans);
+}
+
+float linear(const u32* data,int len){
+	float Ax = 0,Ay = 0,ansX = 0,ansY = 0;
+	float alfa,tmp;
+	int i;
+//	for (i=1;i<=len+1;i++){
+//		alfa = (90-data_len/2*0.25+(i-1)*0.25)*pi/180;
+//		Ax += data[i]*cos(alfa);
+//		Ay += data[i]*sin(alfa);
+//	}
+//	Ax /= data_len+1;
+//	Ay /= data_len+1;
+//	for (i=1;i<=len+1;i++){
+//		alfa = (90-data_len/2*0.25+(i-1)*0.25)*pi/180;
+//		tmp = data[i]*cos(alfa)-Ax;
+//		ansY += tmp*(data[i]*sin(alfa)-Ay);
+//		ansX += tmp*tmp;
+//	}
+//	tmp = ansY/ansX;
+	
+	for (i=1;i<=len+1;i++){
+		alfa = (90-len/2*0.25+(i-1)*0.25)*pi/180;
+		tmp = data[i]*cos(alfa);
+		Ax += tmp;
+		Ay += data[i]*sin(alfa);
+		ansY += data[i]*sin(alfa)*tmp;
+		ansX += tmp*tmp;
+	}
+	tmp = atan2(ansY-Ax*Ay/(len+1),ansX-Ax*Ax/(len+1));
+	
+	return tmp;
 }
 //设置远端IP地址
 void tcp_client_set_remoteip(void)
@@ -114,13 +155,14 @@ void tcp_client_test(void)
 {
  	struct tcp_pcb *tcppcb;  	//定义一个TCP服务器控制块
 	struct ip_addr rmtipaddr;  	//远端ip地址
-	
+	float alfa,ans;
 	u8 *tbuf;
  	u8 key;
 	u8 res=0;		
 	u8 t=0; 
 	u8 connflag=0;		//连接标记
 	recv_len = 0;cp=0;
+	
 	
 	tcp_client_set_remoteip();//先选择IP
 	LCD_Clear(WHITE);	//清屏
@@ -159,16 +201,35 @@ void tcp_client_test(void)
 		if(tcp_client_flag&1<<6)//是否收到数据?
 		{
 			LCD_Fill(30,190,lcddev.width-1,lcddev.height-1,WHITE);//清上一次数据
-			LCD_ShowString_length(30,190,lcddev.width-35,lcddev.height-230,16,tcp_client_recvbuf,recv_len);//显示接收到的数据
-
+			ans=0;
 			if (memcmp(tcp_client_recvbuf,cmd[4],12)==0){
 				decode(tcp_client_recvbuf,recv_len);
 				printf("\r\nTimeStamp:%d\r\n",data[0]);
-				for (recv_len=1;recv_len<data_len+1;recv_len++){
+				for (recv_len=1;recv_len<=data_len+1;recv_len++){
 					printf("%d ",data[recv_len]);
 					if (recv_len%5==0) printf("\r\n");
 				}
+				printf("\r\n");
+//				for (recv_len=1;recv_len<=data_len/2;recv_len++){
+//					alfa = ToAngle(data[recv_len],data[data_len/2+recv_len+1],(data_len/2+1)*0.25*pi/180);
+//					alfa = (90-recv_len*0.25)*pi/180-alfa;
+//					ans += alfa*180/pi;
+//					printf("%f ",alfa*180/pi);
+//					if (recv_len%5==0)printf("\r\n");}
+//				ans /= data_len/2;
+				
+				
+//				alfa = ToAngle(data[1],data[data_len+1],data_len*0.25*pi/180);
+//				alfa = (90-data_len/2*0.25)*pi/180-alfa;
+//				ans = alfa*180/pi;
+				alfa = linear(data,data_len);
+				ans = alfa/pi*180;
+				printf("%f\r\n",ans);
+				sprintf((char*)tbuf,"%f degree",ans);
+				LCD_ShowString(30,190,200,16,16,tbuf);
 			}
+			else
+				LCD_ShowString_length(30,190,lcddev.width-35,lcddev.height-230,16,tcp_client_recvbuf,recv_len);//显示接收到的数据
 			recv_len=0;
 			tcp_client_flag&=~(1<<6);//标记数据已经被处理了.
 		}

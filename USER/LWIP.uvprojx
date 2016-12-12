@@ -426,21 +426,6 @@
               <FilePath>..\HARDWARE\SRAM\sram.c</FilePath>
             </File>
             <File>
-              <FileName>adc.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\HARDWARE\ADC\adc.c</FilePath>
-            </File>
-            <File>
-              <FileName>beep.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\HARDWARE\BEEP\beep.c</FilePath>
-            </File>
-            <File>
-              <FileName>temperature.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\HARDWARE\InterTemperate\temperature.c</FilePath>
-            </File>
-            <File>
               <FileName>rtc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\RTC\rtc.c</FilePath>
@@ -553,26 +538,6 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>USMART</GroupName>
-          <Files>
-            <File>
-              <FileName>usmart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USMART\usmart.c</FilePath>
-            </File>
-            <File>
-              <FileName>usmart_config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USMART\usmart_config.c</FilePath>
-            </File>
-            <File>
-              <FileName>usmart_str.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\USMART\usmart_str.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
           <GroupName>LWIP-APP</GroupName>
           <Files>
             <File>
@@ -584,31 +549,6 @@
               <FileName>tcp_client_demo.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\LWIP\lwip_app\tcp_client_demo\tcp_client_demo.c</FilePath>
-            </File>
-            <File>
-              <FileName>tcp_server_demo.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LWIP\lwip_app\tcp_server_demo\tcp_server_demo.c</FilePath>
-            </File>
-            <File>
-              <FileName>udp_demo.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LWIP\lwip_app\udp_demo\udp_demo.c</FilePath>
-            </File>
-            <File>
-              <FileName>fs.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LWIP\lwip_app\web_server_demo\fs.c</FilePath>
-            </File>
-            <File>
-              <FileName>httpd.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LWIP\lwip_app\web_server_demo\httpd.c</FilePath>
-            </File>
-            <File>
-              <FileName>httpd_cgi_ssi.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LWIP\lwip_app\web_server_demo\httpd_cgi_ssi.c</FilePath>
             </File>
           </Files>
         </Group>
