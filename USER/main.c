@@ -36,20 +36,26 @@ void lwip_test_ui(u8 mode)
 	POINT_COLOR=RED;
 	if(mode&1<<0)
 	{
-		LCD_Fill(30,30,lcddev.width,110,WHITE);	//清除显示
-		LCD_ShowString(30,50,200,16,16,"Ethernet lwIP Test");
+//		LCD_Fill(30,30,lcddev.width,110,WHITE);	//清除显示
+//		LCD_ShowString(30,50,200,16,16,"Ethernet lwIP Test");
+		printf("Ethernet lwIP Test\n");
 	}
 	if(mode&1<<1)
 	{
 		LCD_Fill(30,110,lcddev.width,lcddev.height,WHITE);	//清除显示
-		LCD_ShowString(30,70,200,16,16,"lwIP Init Successed");
-		sprintf((char*)buf,"Static IP:%d.%d.%d.%d",lwipdev.ip[0],lwipdev.ip[1],lwipdev.ip[2],lwipdev.ip[3]);//打印静态IP地址
-		LCD_ShowString(30,90,210,16,16,buf); 
+		printf("lwIP Init Successed\n");
+//		LCD_ShowString(30,70,200,16,16,"lwIP Init Successed");
+//		sprintf((char*)buf,"Static IP:%d.%d.%d.%d",lwipdev.ip[0],lwipdev.ip[1],lwipdev.ip[2],lwipdev.ip[3]);//打印静态IP地址
+//		LCD_ShowString(30,90,210,16,16,buf); 
+		printf("Static IP:%d.%d.%d.%d\n",lwipdev.ip[0],lwipdev.ip[1],lwipdev.ip[2],lwipdev.ip[3]);
 		speed=LAN8720_Get_Speed();//得到网速
-		if(speed&1<<1)LCD_ShowString(30,110,200,16,16,"Ethernet Speed:100M");
-		else LCD_ShowString(30,130,200,16,16,"Ethernet Speed:10M");
-		LCD_ShowString(30,150,200,40,16,"Press KEY1 to enter      TCP Client Test");
-
+		if(speed&1<<1)
+			printf("Ethernet Speed:100M\n");
+			//LCD_ShowString(30,110,200,16,16,"Ethernet Speed:100M");
+		else
+			printf("Ethernet Speed:10M\n");
+			//LCD_ShowString(30,130,200,16,16,"Ethernet Speed:10M");
+		//LCD_ShowString(30,150,200,40,16,"Press KEY1 to enter      TCP Client Test");
 	}
 }
 
@@ -73,32 +79,38 @@ int main(void)
 	lwip_test_ui(1);		//加载前半部分UI
 	
 	//先初始化lwIP(包括LAN8720初始化),此时必须插上网线,否则初始化会失败!! 
-	LCD_ShowString(30,110,200,16,16,"lwIP Initing...");
+	//LCD_ShowString(30,110,200,16,16,"lwIP Initing...");
+	printf("lwIP Initing...\n");
 	while(lwip_comm_init()!=0)
 	{
-		LCD_ShowString(30,110,200,16,16,"lwIP Init failed!");
+		printf("lwIP Init failed!\n");
+//		LCD_ShowString(30,110,200,16,16,"lwIP Init failed!");
 		delay_ms(1200);
-		LCD_Fill(30,110,230,110+16,WHITE);//清除显示
-		LCD_ShowString(30,110,200,16,16,"Retrying...");  
+		printf("Retrying\n");
+//		LCD_Fill(30,110,230,110+16,WHITE);//清除显示
+//		LCD_ShowString(30,110,200,16,16,"Retrying...");  
 	}
-	LCD_ShowString(30,110,200,16,16,"lwIP Init Successed");
+	//LCD_ShowString(30,110,200,16,16,"lwIP Init Successed");
+	printf("lwIP Init Successed\n");
 	lwip_test_ui(2);//加载后半部分UI 
 	while(1)
 	{	
-		key=KEY_Scan(0);
-		if (key==KEY1_PRES){
-			tcp_client_test();
-			lwip_test_ui(3);//重新加载UI
-		}
+//		key=KEY_Scan(0);
+//		if (key==KEY1_PRES){
+//			tcp_client_test();
+//			lwip_test_ui(3);//重新加载UI
+//		}
+		tcp_client_test();
+		lwip_test_ui(3);//重新加载UI
 		lwip_periodic_handle();
 		delay_ms(2);
-		t++;
-		if(t==200)
-		{ 
-			t=0;
-			LCD_Fill(30,230,230,230+16,WHITE);//清除显示
-			LED0=!LED0;
-		} 
+//		t++;
+//		if(t==200)
+//		{ 
+//			t=0;
+//			LCD_Fill(30,230,230,230+16,WHITE);//清除显示
+//			LED0=!LED0;
+//		} 
 	}
 }
 

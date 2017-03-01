@@ -31,7 +31,9 @@ u8 tcp_client_recvbuf[TCP_CLIENT_RX_BUFSIZE];
 const u8 cmd[5][14]={"%ST\r","BM\r","QT\r","RS\r",
 	"GD0480060000\r"};
 int recv_len,cp,data_len=600-480;
-u32 data[3000];
+u32 data[3000];	
+u8 flag = 0;
+	
 //TCP Client 测试全局状态标记变量
 //bit7:0,没有数据要发送;1,有数据要发送
 //bit6:0,没有收到数据;1,收到数据了.
@@ -98,16 +100,18 @@ float linear(const u32* data,int len){
 //		ansY += tmp*(data[i]*sin(alfa)-Ay);
 //		ansX += tmp*tmp;
 //	}
-//	tmp = ansY/ansX;
+//	tmp = atan2(ansY,ansX);
 	
 	for (i=1;i<=len+1;i++){
 		alfa = (90-len/2*0.25+(i-1)*0.25)*pi/180;
 		tmp = data[i]*cos(alfa);
+		printf("%d,",data[i]);
 		Ax += tmp;
 		Ay += data[i]*sin(alfa);
 		ansY += data[i]*sin(alfa)*tmp;
 		ansX += tmp*tmp;
 	}
+	printf("\n");
 	tmp = atan2(ansY-Ax*Ay/(len+1),ansX-Ax*Ax/(len+1));
 	
 	return tmp;
@@ -118,35 +122,48 @@ void tcp_client_set_remoteip(void)
 	u8 *tbuf;
 	u16 xoff;
 	u8 key;
-	LCD_Clear(WHITE);
-	POINT_COLOR=RED;
-	LCD_ShowString(30,30,200,16,16,"TCP Client Test");
-	LCD_ShowString(30,50,200,16,16,"Remote IP Set");  
-	LCD_ShowString(30,70,200,16,16,"KEY0:+  KEY2:-");  
-	LCD_ShowString(30,90,200,16,16,"KEY_UP:OK");  
+//	LCD_Clear(WHITE);
+//	POINT_COLOR=RED;
+	printf("TCP Client Test\n");
+	printf("Remote IP Set\n");
+	
+//	LCD_ShowString(30,30,200,16,16,"TCP Client Test");
+//	LCD_ShowString(30,50,200,16,16,"Remote IP Set");  
+//	LCD_ShowString(30,70,200,16,16,"KEY0:+  KEY2:-");  
+//	LCD_ShowString(30,90,200,16,16,"KEY_UP:OK");  
+	
 	tbuf=mymalloc(SRAMIN,100);	//申请内存
 	if(tbuf==NULL)return;
 	//前三个IP保持和DHCP得到的IP一致
 	lwipdev.remoteip[0]=lwipdev.ip[0];
 	lwipdev.remoteip[1]=lwipdev.ip[1];
 	lwipdev.remoteip[2]=lwipdev.ip[2]; 
-	sprintf((char*)tbuf,"Remote IP:%d.%d.%d.",lwipdev.remoteip[0],lwipdev.remoteip[1],lwipdev.remoteip[2]);//远端IP
-	LCD_ShowString(30,110,210,16,16,tbuf); 
-	POINT_COLOR=BLUE;
-	xoff=strlen((char*)tbuf)*8+30;
-	LCD_ShowxNum(xoff,110,lwipdev.remoteip[3],3,16,0); 
+	
+	//sprintf((char*)tbuf,"Remote IP:%d.%d.%d.",lwipdev.remoteip[0],lwipdev.remoteip[1],lwipdev.remoteip[2]);//远端IP
+	
+	printf("Remote IP:%d.%d.%d.%d\n",lwipdev.remoteip[0],lwipdev.remoteip[1],lwipdev.remoteip[2],lwipdev.remoteip[3]);
+	
+	//LCD_ShowString(30,110,210,16,16,tbuf); 
+	
+//	POINT_COLOR=BLUE;
+//	xoff=strlen((char*)tbuf)*8+30;
+//	LCD_ShowxNum(xoff,110,lwipdev.remoteip[3],3,16,0); 
+
 	while(1)
 	{
-		key=KEY_Scan(0);
-		if(key==WKUP_PRES)break;
-		else if(key)
+//		key=KEY_Scan(0);
+//		if(key==WKUP_PRES)break;
+		key = USART_RX_BUF[0];
+		if (key == 5) break;
+		else if(key>0&&key<9)
 		{
-			if(key==KEY0_PRES)lwipdev.remoteip[3]++;//IP增加
-			if(key==KEY2_PRES)lwipdev.remoteip[3]--;//IP减少
-			LCD_ShowxNum(xoff,1100,lwipdev.remoteip[3],3,16,0X80);//显示新IP
+			if(key==8||key==6)lwipdev.remoteip[3]++;//IP增加
+			if(key==2||key==4)lwipdev.remoteip[3]--;//IP减少
+			printf("Remote IP:%d.%d.%d.%d\n",lwipdev.remoteip[0],lwipdev.remoteip[1],lwipdev.remoteip[2],lwipdev.remoteip[3]);
+//			LCD_ShowxNum(xoff,1100,lwipdev.remoteip[3],3,16,0X80);//显示新IP
 		}
 	}
-	myfree(SRAMIN,tbuf); 
+	//myfree(SRAMIN,tbuf); 
 }
  
 
@@ -156,6 +173,7 @@ void tcp_client_test(void)
  	struct tcp_pcb *tcppcb;  	//定义一个TCP服务器控制块
 	struct ip_addr rmtipaddr;  	//远端ip地址
 	float alfa,ans;
+	u8 f_cnt = 0;
 	u8 *tbuf;
  	u8 key;
 	u8 res=0;		
@@ -165,21 +183,38 @@ void tcp_client_test(void)
 	
 	
 	tcp_client_set_remoteip();//先选择IP
-	LCD_Clear(WHITE);	//清屏
-	POINT_COLOR=RED; 	//红色字体
-	LCD_ShowString(30,30,200,16,16,"TCP Client Test");
-	LCD_ShowString(30,50,200,16,16,"KEY0:Send data");  
-	LCD_ShowString(30,70,200,16,16,"KEY_UP:Quit");  
-	tbuf=mymalloc(SRAMIN,200);	//申请内存
-	if(tbuf==NULL)return ;		//内存申请失败了,直接退出
-	sprintf((char*)tbuf,"Local IP:%d.%d.%d.%d",lwipdev.ip[0],lwipdev.ip[1],lwipdev.ip[2],lwipdev.ip[3]);//服务器IP
-	LCD_ShowString(30,90,210,16,16,tbuf);  
-	sprintf((char*)tbuf,"Remote IP:%d.%d.%d.%d",lwipdev.remoteip[0],lwipdev.remoteip[1],lwipdev.remoteip[2],lwipdev.remoteip[3]);//远端IP
-	LCD_ShowString(30,110,210,16,16,tbuf);  
-	sprintf((char*)tbuf,"Remote Port:%d",TCP_CLIENT_PORT);//客户端端口号
-	LCD_ShowString(30,130,210,16,16,tbuf);
-	POINT_COLOR=BLUE;
-	LCD_ShowString(30,150,210,16,16,"STATUS:Disconnected"); 
+//	LCD_Clear(WHITE);	//清屏
+//	POINT_COLOR=RED; 	//红色字体
+	
+//	LCD_ShowString(30,30,200,16,16,"TCP Client Test");
+//	LCD_ShowString(30,50,200,16,16,"KEY0:Send data");  
+//	LCD_ShowString(30,70,200,16,16,"KEY_UP:Quit");  
+	
+	printf("TCP Client Mode\n");
+	
+//	tbuf=mymalloc(SRAMIN,200);	//申请内存
+//	if(tbuf==NULL)return ;		//内存申请失败了,直接退出
+	
+//	sprintf((char*)tbuf,"Local IP:%d.%d.%d.%d",lwipdev.ip[0],lwipdev.ip[1],lwipdev.ip[2],lwipdev.ip[3]);//服务器IP
+//	LCD_ShowString(30,90,210,16,16,tbuf);  
+	
+	printf("Local IP:%d.%d.%d.%d\n",lwipdev.ip[0],lwipdev.ip[1],lwipdev.ip[2],lwipdev.ip[3]);
+	
+//	sprintf((char*)tbuf,"Remote IP:%d.%d.%d.%d",lwipdev.remoteip[0],lwipdev.remoteip[1],lwipdev.remoteip[2],lwipdev.remoteip[3]);//远端IP
+//	LCD_ShowString(30,110,210,16,16,tbuf);  
+	
+	printf("Remote IP:%d.%d.%d.%d\n",lwipdev.remoteip[0],lwipdev.remoteip[1],lwipdev.remoteip[2],lwipdev.remoteip[3]);
+	
+//	sprintf((char*)tbuf,"Remote Port:%d",TCP_CLIENT_PORT);//客户端端口号
+//	LCD_ShowString(30,130,210,16,16,tbuf);
+	
+	printf("Remote Port:%d\n",TCP_CLIENT_PORT);
+	
+//	POINT_COLOR=BLUE;
+//	LCD_ShowString(30,150,210,16,16,"STATUS:Disconnected"); 
+
+	printf("STATUS:Disconnected\n");
+
 	tcppcb=tcp_new();	//创建一个新的pcb
 	if(tcppcb)			//创建成功
 	{
@@ -188,28 +223,33 @@ void tcp_client_test(void)
  	}else res=1;
 	while(res==0)
 	{
-		key=KEY_Scan(0);
-		if(key==WKUP_PRES)break;
-		if(key==KEY0_PRES)//KEY0按下了,发送数据
+		key=USART_RX_BUF[0];
+		if(key==0)break;
+		if(key==5)//5按下了,发送数据
 		{
 			tcp_client_flag|=1<<7;//标记要发送数据
+			printf("sent");
 		}
-		if(key==KEY2_PRES&&cp>0) cp--;
-		else if (key==KEY1_PRES&&cp<4) cp++;
+		if (key<0&&key<9){
+			if((key==4||key==2)) cp--;
+			else if (key==8||key==6) cp++;
+			if (cp<0)cp+=5;
+			else cp%=5;
 		//LCD_Fill(30,250,lcddev.width-1,lcddev.height-1,WHITE);//清上一次数据
-		LCD_ShowNum(30,290,cp,1,16);
+		//LCD_ShowNum(30,290,cp,1,16);
+			printf("ready to send :%s\n",cmd[4]);
+		}
 		if(tcp_client_flag&1<<6)//是否收到数据?
 		{
-			LCD_Fill(30,190,lcddev.width-1,lcddev.height-1,WHITE);//清上一次数据
-			ans=0;
 			if (memcmp(tcp_client_recvbuf,cmd[4],12)==0){
 				decode(tcp_client_recvbuf,recv_len);
-				printf("\r\nTimeStamp:%d\r\n",data[0]);
-				for (recv_len=1;recv_len<=data_len+1;recv_len++){
-					printf("%d ",data[recv_len]);
-					if (recv_len%5==0) printf("\r\n");
-				}
-				printf("\r\n");
+//				printf("\r\nTimeStamp:%d\r\n",data[0]);
+//				for (recv_len=1;recv_len<=data_len+1;recv_len++){
+//					printf("%d ",data[recv_len]);
+//					if (recv_len%5==0) printf("\r\n");
+//				}
+//				printf("\r\n");
+				
 //				for (recv_len=1;recv_len<=data_len/2;recv_len++){
 //					alfa = ToAngle(data[recv_len],data[data_len/2+recv_len+1],(data_len/2+1)*0.25*pi/180);
 //					alfa = (90-recv_len*0.25)*pi/180-alfa;
@@ -221,15 +261,31 @@ void tcp_client_test(void)
 				
 //				alfa = ToAngle(data[1],data[data_len+1],data_len*0.25*pi/180);
 //				alfa = (90-data_len/2*0.25)*pi/180-alfa;
-//				ans = alfa*180/pi;
-				alfa = linear(data,data_len);
-				ans = alfa/pi*180;
-				printf("%f\r\n",ans);
-				sprintf((char*)tbuf,"%f degree",ans);
-				LCD_ShowString(30,190,200,16,16,tbuf);
+//				ans += alfa*180/pi;
+				
+//				alfa = linear(data,data_len);
+//				ans += alfa/pi*180;
+//				
+//				if (f_cnt==9){	
+//					ans /= 10;
+//					f_cnt = 0;
+//					LCD_Fill(30,190,lcddev.width-1,lcddev.height-1,WHITE);//清上一次数据
+//					//printf("%f\r\n",ans);
+//					sprintf((char*)tbuf,"%f degree",ans);
+//					LCD_ShowString(30,190,200,16,16,tbuf);
+//					ans = 0; 
+//				}else{
+//					//printf("%f\r\n",alfa/pi*180);
+//					tcp_client_flag|=1<<7;
+//					f_cnt++;
+//				}
+				printf("Recieve Ok\n");
 			}
-			else
-				LCD_ShowString_length(30,190,lcddev.width-35,lcddev.height-230,16,tcp_client_recvbuf,recv_len);//显示接收到的数据
+			else{
+//				LCD_Fill(30,190,lcddev.width-1,lcddev.height-1,WHITE);//清上一次数据
+//				LCD_ShowString_length(30,190,lcddev.width-35,lcddev.height-230,16,tcp_client_recvbuf,recv_len);//显示接收到的数据
+				printf("%s\n",tcp_client_recvbuf);
+			}
 			recv_len=0;
 			tcp_client_flag&=~(1<<6);//标记数据已经被处理了.
 		}
@@ -237,16 +293,19 @@ void tcp_client_test(void)
 		{
 			if(connflag==0)
 			{ 
-				LCD_ShowString(30,150,lcddev.width-30,lcddev.height-190,16,"STATUS:Connected   ");//提示消息		
-				POINT_COLOR=RED;
-				LCD_ShowString(30,170,lcddev.width-30,lcddev.height-190,16,"Receive Data:");//提示消息		
-				POINT_COLOR=BLUE;//蓝色字体
+//				LCD_ShowString(30,150,lcddev.width-30,lcddev.height-190,16,"STATUS:Connected   ");//提示消息		
+//				POINT_COLOR=RED;
+//				LCD_ShowString(30,170,lcddev.width-30,lcddev.height-190,16,"Receive Data:");//提示消息		
+//				POINT_COLOR=BLUE;//蓝色字体
+				printf("STATUS:Connected\n");
+				printf("Receive Data:");
 				connflag=1;//标记连接了
 			} 
 		}else if(connflag)
 		{
- 			LCD_ShowString(30,150,190,16,16,"STATUS:Disconnected");
-			LCD_Fill(30,210,lcddev.width-1,lcddev.height-1,WHITE);//清屏
+// 			LCD_ShowString(30,150,190,16,16,"STATUS:Disconnected");
+//			LCD_Fill(30,210,lcddev.width-1,lcddev.height-1,WHITE);//清屏
+			printf("STATUS:Disconnected\n");
 			connflag=0;	//标记连接断开了
 		} 
 		lwip_periodic_handle();
@@ -363,7 +422,7 @@ err_t tcp_client_poll(void *arg, struct tcp_pcb *tpcb)
 		if(tcp_client_flag&(1<<7))	//判断是否有数据要发送 
 		{
 //			es->p=pbuf_alloc(PBUF_TRANSPORT, strlen((char*)tcp_client_sendbuf),PBUF_POOL);	//申请内存 
-//			pbuf_take(es->p,(char*)tcp_client_sendbuf,strlen((char*)tcp_client_sendbuf));	//将tcp_client_sentbuf[]中的数据拷贝到es->p_tx中
+//			pbuf_take(es->p,(char*)tcp_client_sendbuf,strlen((char*)tcp_client_sendbuf));	//将tcp_client_sentbuf[]中的数据拷贝到es->p_tx中	
 			es->p=pbuf_alloc(PBUF_TRANSPORT, strlen((char*)cmd[cp]),PBUF_POOL);	//申请内存 
 			pbuf_take(es->p,(char*)cmd[cp],strlen((char*)cmd[cp]));	//将tcp_client_sentbuf[]中的数据拷贝到es->p_tx中
 			tcp_client_senddata(tpcb,es);//将tcp_client_sentbuf[]里面复制给pbuf的数据发送出去
